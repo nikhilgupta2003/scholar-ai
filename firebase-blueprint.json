@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "StudyHistory": {
+      "title": "Study History",
+      "description": "A record of a user's study session, including the generated content.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The unique ID of the user who generated the content."
+        },
+        "fileName": {
+          "type": "string",
+          "description": "The name of the file that was analyzed."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["quiz", "notes", "points"],
+          "description": "The study mode used to generate the content."
+        },
+        "content": {
+          "type": "string",
+          "description": "The AI-generated study content in Markdown format."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the content was generated."
+        }
+      },
+      "required": ["userId", "fileName", "mode", "content", "createdAt"]
+    },
+    "UserProgress": {
+      "title": "User Progress",
+      "description": "Tracking user performance and completion for specific study materials.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The unique ID of the user."
+        },
+        "historyId": {
+          "type": "string",
+          "description": "Reference to the study history document."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["quiz", "flashcard", "fill"],
+          "description": "The type of activity tracked."
+        },
+        "score": {
+          "type": "integer",
+          "description": "The score achieved (if applicable)."
+        },
+        "total": {
+          "type": "integer",
+          "description": "The total possible score or items."
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Whether the activity is completed."
+        },
+        "lastUpdated": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp of the last update."
+        }
+      },
+      "required": ["userId", "historyId", "type", "completed", "lastUpdated"]
+    }
+  },
+  "firestore": {
+    "/study_history/{historyId}": {
+      "schema": "StudyHistory",
+      "description": "Collection of study history records."
+    },
+    "/user_progress/{progressId}": {
+      "schema": "UserProgress",
+      "description": "Collection of user progress records."
+    }
+  }
+}
