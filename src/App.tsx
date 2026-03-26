@@ -114,7 +114,7 @@ interface UserTime {
 }
 
 // Study Buddy Component
-const StudyBuddy = ({ userContext }: { userContext?: string }) => {
+const StudyBuddy = ({ userContext, fileName, mode }: { userContext?: string, fileName?: string, mode?: StudyMode }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
     { role: 'model', text: 'Namaste! I am your Study Buddy. How can I help you today? (Aapki padhai mein main kaise madad kar sakta hoon?)' }
@@ -122,12 +122,24 @@ const StudyBuddy = ({ userContext }: { userContext?: string }) => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastContext = useRef<{fileName?: string, mode?: StudyMode}>({});
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Update greeting when context changes
+  useEffect(() => {
+    if (fileName && (fileName !== lastContext.current.fileName || mode !== lastContext.current.mode)) {
+      setMessages(prev => [
+        ...prev,
+        { role: 'model', text: `I see you're studying **${fileName}** in **${mode || 'General'}** mode. How can I help you with this material? (Main is material mein aapki kaise madad kar sakta hoon?)` }
+      ]);
+      lastContext.current = { fileName, mode };
+    }
+  }, [fileName, mode]);
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
@@ -144,7 +156,17 @@ const StudyBuddy = ({ userContext }: { userContext?: string }) => {
         contents: [
           { role: 'user', parts: [{ text: `You are a friendly, supportive, and highly knowledgeable Study Buddy. Your goal is to help students understand complex concepts, answer their doubts, and keep them motivated. You are bilingual and can seamlessly understand and reply in both Hindi (Hinglish/Devanagari) and English. 
 
-Current Context: The student is studying "${userContext || 'General Topics'}". 
+Current Context:
+- Document: "${fileName || 'General Topics'}"
+- Study Mode: "${mode || 'General'}"
+- Content Reference: ${userContext?.substring(0, 3000) || 'No specific content provided.'}
+
+Your Task:
+1. Answer the user's specific doubt based on the provided content.
+2. If the user is in 'Quiz Master' mode, you can offer to explain a specific question or ask them a follow-up question to test their understanding.
+3. If the user is in 'Study Notes' or 'Key Takeaways' mode, help them elaborate on points or simplify complex sections.
+4. Always be encouraging and use a mix of Hindi and English where appropriate to make the student feel comfortable.
+
 Tone: Friendly, encouraging, patient, and slightly informal (like a helpful senior or a peer).
 
 User's Doubt: ${userMsg}` }] }
@@ -1706,7 +1728,11 @@ export default function App() {
         .markdown-content code { background: #f1f5f9; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.9em; color: #4f46e5; font-weight: 600; }
         .markdown-content hr { border: none; border-top: 2px solid #f1f5f9; margin: 3rem 0; }
       `}</style>
-      <StudyBuddy userContext={selectedHistoryItem?.content || result || undefined} />
+      <StudyBuddy 
+        userContext={selectedHistoryItem?.content || result || undefined} 
+        fileName={selectedHistoryItem?.fileName || file?.name}
+        mode={(selectedHistoryItem?.mode as StudyMode) || mode}
+      />
     </div>
   );
 }
