@@ -10,7 +10,7 @@ import {
   signInWithEmailAndPassword, 
   updateProfile 
 } from 'firebase/auth';
-import { getFirestore, collection, addDoc, setDoc, query, where, orderBy, onSnapshot, deleteDoc, doc, getDocFromServer, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, setDoc, query, where, orderBy, onSnapshot, deleteDoc, doc, getDocFromServer, Timestamp, increment, updateDoc, getDoc } from 'firebase/firestore';
 
 // Import the Firebase configuration
 import firebaseConfig from '../firebase-applet-config.json';
@@ -38,6 +38,9 @@ export {
   deleteDoc, 
   doc, 
   getDocFromServer,
-  Timestamp
+  Timestamp,
+  increment,
+  updateDoc,
+  getDoc
 };
 export type { User };

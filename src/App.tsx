@@ -21,6 +21,7 @@ import {
   BrainCircuit,
   History,
   Trash2,
+  AlertCircle,
   LogOut,
   LogIn,
   User as UserIcon,
@@ -55,6 +56,9 @@ import {
   onSnapshot, 
   deleteDoc, 
   doc, 
+  getDoc,
+  updateDoc,
+  increment,
   Timestamp,
   User
 } from './firebase';
@@ -928,9 +932,9 @@ export default function App() {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    // Check for 1GB limit (1024 * 1024 * 1024 bytes)
-    if (selectedFile.size > 1024 * 1024 * 1024) {
-      setError('File size exceeds 1GB limit.');
+    // Check for 20MB limit (20 * 1024 * 1024 bytes) for inlineData
+    if (selectedFile.size > 20 * 1024 * 1024) {
+      setError('File size exceeds 20MB limit for instant processing.');
       return;
     }
 
@@ -1499,7 +1503,7 @@ export default function App() {
                   </div>
                   <div className="space-y-2">
                     <p className="text-2xl font-display font-bold text-slate-900">Drop your material here</p>
-                    <p className="text-slate-500 font-medium">PDF or Text files up to 1GB</p>
+                    <p className="text-slate-500 font-medium">PDF or Text files up to 20MB</p>
                   </div>
                 </div>
               </motion.div>
@@ -1593,6 +1597,17 @@ export default function App() {
                     </motion.button>
                   ))}
                 </div>
+
+                {error && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600"
+                  >
+                    <AlertCircle size={20} />
+                    <p className="font-bold text-sm">{error}</p>
+                  </motion.div>
+                )}
               </div>
 
               {loading && (
