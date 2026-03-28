@@ -29,10 +29,13 @@ import {
   Download,
   RotateCcw,
   HelpCircle,
-  BarChart3
+  BarChart3,
+  Maximize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import mermaid from 'mermaid';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -265,19 +268,102 @@ User's Doubt: ${userMsg}` }] }
 // Mermaid Component
 const Mermaid = ({ chart }: { chart: string }) => {
   const ref = useRef<HTMLDivElement>(null);
+  const [svgContent, setSvgContent] = useState<string>('');
+  const [isZoomed, setIsZoomed] = useState(false);
 
   useEffect(() => {
     if (ref.current && chart) {
-      mermaid.initialize({ startOnLoad: true, theme: 'default' });
-      mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, chart).then(({ svg }) => {
+      mermaid.initialize({ 
+        startOnLoad: true, 
+        theme: 'default',
+        securityLevel: 'loose',
+        fontFamily: 'Plus Jakarta Sans'
+      });
+      const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+      mermaid.render(id, chart).then(({ svg }) => {
         if (ref.current) {
           ref.current.innerHTML = svg;
+          setSvgContent(svg);
+        }
+      }).catch(err => {
+        console.error('Mermaid render error:', err);
+        if (ref.current) {
+          ref.current.innerHTML = '<div class="p-4 bg-red-50 text-red-600 rounded-xl text-sm">Failed to render diagram. Please check the syntax.</div>';
         }
       });
     }
   }, [chart]);
 
-  return <div ref={ref} className="my-6 flex justify-center overflow-x-auto" />;
+  const downloadSVG = () => {
+    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'diagram.svg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="my-8 group relative no-pdf-break">
+      <div className="flex items-center justify-between mb-4 px-4">
+        <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-widest">
+          <Sparkles size={14} />
+          AI Generated Diagram
+        </div>
+        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button 
+            onClick={() => setIsZoomed(true)}
+            className="p-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm"
+            title="Zoom In"
+          >
+            <Maximize2 size={16} />
+          </button>
+          <button 
+            onClick={downloadSVG}
+            className="p-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm"
+            title="Download SVG"
+          >
+            <Download size={16} />
+          </button>
+        </div>
+      </div>
+      
+      <div className="bg-slate-50/50 rounded-3xl border border-slate-100 p-8 flex justify-center overflow-x-auto min-h-[200px] items-center">
+        <div ref={ref} className="max-w-full" />
+      </div>
+
+      <AnimatePresence>
+        {isZoomed && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-10"
+            onClick={() => setIsZoomed(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative max-w-full max-h-full bg-white rounded-[3rem] p-12 overflow-auto shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setIsZoomed(false)}
+                className="absolute top-6 right-6 p-3 bg-slate-100 text-slate-500 hover:text-red-500 rounded-2xl transition-all"
+              >
+                <X size={24} />
+              </button>
+              <div dangerouslySetInnerHTML={{ __html: svgContent }} className="flex justify-center" />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 // Flashcard Component
@@ -969,20 +1055,31 @@ export default function App() {
       
       let prompt = 'Analyze the provided document carefully. Detect the academic level (e.g., primary school, high school, undergraduate, medical, engineering, or postgraduate/M.Tech) and technical complexity of the content. ';
       
-      prompt += 'IMPORTANT: If the document contains diagrams, or if a diagram would help explain a concept (especially for medical, engineering, or scientific subjects), please describe the diagram in detail. If the diagram can be represented as a flowchart, sequence, or structure, please provide a Mermaid.js code block (e.g., ```mermaid ... ```). ';
-      
-      prompt += 'INTERACTIVE ELEMENTS: To make the study material more engaging, please include: \n' +
-                '1. Flashcards: Use a code block like ```flashcard\nQuestion | Answer\nQuestion | Answer\n```\n' +
-                '2. Fill-in-the-blanks: Use a code block like ```fill\nThis is a [blank] sentence. | blank\nAnother [example] here. | example\n```\n' +
-                '3. Interactive Quiz: Use a code block like ```quiz\n1. Question text?\na) Option 1\nb) Option 2\nc) Option 3\nd) Option 4\nCorrect Answer: A\n```\n' +
-                'Integrate these elements naturally into the notes or quiz sections where they add value for memorization.';
+      if (selectedMode === 'quiz' || selectedMode === 'notes') {
+        prompt += 'IMPORTANT: If the document contains diagrams, or if a diagram would help explain a concept (especially for medical, engineering, or scientific subjects), please describe the diagram in detail. If the diagram can be represented as a flowchart, mind map, sequence, or architecture, please provide a Mermaid.js code block (e.g., ```mermaid ... ```). Use sophisticated Mermaid types like: \n' +
+                  '- Flowcharts (graph TD/LR)\n' +
+                  '- Mind Maps (mindmap)\n' +
+                  '- Sequence Diagrams (sequenceDiagram)\n' +
+                  '- Entity Relationship Diagrams (erDiagram)\n' +
+                  '- State Diagrams (stateDiagram-v2)\n' +
+                  '- Class Diagrams (classDiagram)\n' +
+                  '- Gantt Charts (gantt)\n' +
+                  '- Pie Charts (pie)\n' +
+                  '- C4 Architecture Diagrams (C4Context)\n' +
+                  'Choose the most relevant type for the content. ';
+        
+        prompt += 'INTERACTIVE ELEMENTS: To make the study material more engaging, please include a FEW (max 3-5 each) of the following where they add value: \n' +
+                  '1. Flashcards: Use a code block like ```flashcard\nQuestion | Answer\nQuestion | Answer\n```\n' +
+                  '2. Fill-in-the-blanks: Use a code block like ```fill\nThis is a [blank] sentence. | blank\nAnother [example] here. | example\n```\n' +
+                  '3. Interactive Quiz: Use a code block like ```quiz\n1. Question text?\na) Option 1\nb) Option 2\nc) Option 3\nd) Option 4\nCorrect Answer: A\n```\n';
+      }
       
       if (selectedMode === 'quiz') {
-        prompt += 'Generate a comprehensive quiz tailored to this specific academic level. Include a mix of conceptual, analytical, and practical questions. For technical subjects like engineering or medical, include relevant terminology and problem-solving scenarios. Provide answers and detailed explanations at the end. Format with clear headings and numbered questions.';
+        prompt += 'Generate an extremely comprehensive and exhaustive quiz tailored to this specific academic level. Include a mix of conceptual, analytical, and practical questions. For technical subjects like engineering or medical, include ALL relevant terminology and complex problem-solving scenarios. Provide answers and detailed explanations for every question at the end. Format with clear headings and numbered questions. Use LaTeX for all mathematical expressions (e.g., $x^2$).';
       } else if (selectedMode === 'notes') {
-        prompt += 'Create structured, high-quality study notes. Adapt the depth of explanation to match the content level—provide simple analogies for lower levels and rigorous technical definitions for higher levels (like M.Tech or Medical). Focus on core concepts, formulas, or clinical correlations where applicable. Use bold text for key terms.';
+        prompt += 'Create extremely detailed, comprehensive, and exhaustive study notes. Do not summarize; instead, expand on every single concept, definition, and sub-topic found in the document. Ensure that even the smallest details are captured. For technical, engineering, or medical subjects, include ALL formulas, equations, and mathematical derivations with clear explanations of each variable. Use LaTeX for all mathematical expressions (e.g., $x^2$). Focus on deep conceptual understanding, clinical correlations, and technical nuances. Use bold text for key terms. Prioritize structural relevance—the notes should logically follow the document\'s flow but with enhanced depth.';
       } else if (selectedMode === 'points') {
-        prompt += 'Summarize the main points in a clear, hierarchical bulleted list. Ensure the summary captures the essential arguments or findings, maintaining the appropriate level of technical detail for the subject matter.';
+        prompt += 'Provide a comprehensive and exhaustive list of key takeaways. Do not just summarize; cover every significant point and detail mentioned in the document, ensuring a thorough understanding of the material. Use LaTeX for all mathematical expressions (e.g., $x^2$).';
       }
 
       const response: GenerateContentResponse = await ai.models.generateContent({
@@ -1000,6 +1097,9 @@ export default function App() {
             ],
           },
         ],
+        config: {
+          maxOutputTokens: 8192,
+        }
       });
 
       const generatedText = response.text || 'No content generated.';
@@ -1015,9 +1115,16 @@ export default function App() {
       });
       setCurrentHistoryId(docRef.id);
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError('Failed to generate content. Please try again.');
+      const errorMessage = err.message || 'Unknown error';
+      if (errorMessage.includes('tokens limit')) {
+        setError('The document is too complex for a single generation. Try a smaller section or a different mode.');
+      } else if (errorMessage.includes('API key')) {
+        setError('Invalid API configuration. Please check your settings.');
+      } else {
+        setError(`Failed to generate content: ${errorMessage.substring(0, 100)}...`);
+      }
     } finally {
       setLoading(false);
     }
@@ -1673,6 +1780,8 @@ export default function App() {
                 <div className="p-10 md:p-16 prose prose-slate max-w-none" ref={resultRef}>
                   <div className="markdown-content">
                     <ReactMarkdown 
+                      remarkPlugins={[remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
                       components={{
                         code({ node, inline, className, children, ...props }: any) {
                           const match = /language-(\w+)/.exec(className || '');
